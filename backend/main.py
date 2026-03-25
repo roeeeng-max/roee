@@ -1,5 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 import shutil, os, tempfile
@@ -243,3 +245,19 @@ def stats_categories(month: Optional[str] = None, db: Session = Depends(get_db))
         q = q.filter(func.strftime("%Y-%m", Transaction.date) == month)
     q = q.group_by(Transaction.category).order_by(func.sum(Transaction.amount).desc())
     return [{"category": r.category, "total": round(r.total, 2), "count": r.count} for r in q.all()]
+
+
+# ─── Serve React frontend (catch-all) ─────────────────────────────────────────
+
+DIST_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+
+if os.path.isdir(DIST_DIR):
+    app.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
+
+    @app.get("/favicon.svg")
+    def favicon():
+        return FileResponse(os.path.join(DIST_DIR, "favicon.svg"))
+
+    @app.get("/{full_path:path}")
+    def serve_spa(full_path: str):
+        return FileResponse(os.path.join(DIST_DIR, "index.html"))

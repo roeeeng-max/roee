@@ -5,6 +5,7 @@ import Transactions from "./pages/Transactions";
 import Upload from "./pages/Upload";
 import Budget from "./pages/Budget";
 import Files from "./pages/Files";
+import ICMemo from "./pages/ICMemo";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="/upload" element={<Upload />} />
             <Route path="/budget" element={<Budget />} />
             <Route path="/files" element={<Files />} />
+            <Route path="/ic-memo" element={<ICMemo />} />
           </Routes>
         </main>
       </div>

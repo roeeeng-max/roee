@@ -6,6 +6,7 @@ const links = [
   { to: "/upload", label: "העלאת קבצים", icon: "📂" },
   { to: "/budget", label: "תקציב", icon: "🎯" },
   { to: "/files", label: "קבצים", icon: "📁" },
+  { to: "/ic-memo", label: "תזכיר השקעות", icon: "📋" },
 ];
 
 export default function Sidebar() {
