@@ -3,3 +3,6 @@ __pycache__/
 *.db
 node_modules/
 dist/
+venv/
+# backend/static is committed (built frontend)
+!backend/static/
