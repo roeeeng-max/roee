@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title מתכנן פיננסי - רועי וניקול
+title מתכנן פיננסי
 
 echo.
 echo ================================
@@ -9,70 +9,78 @@ echo ================================
 echo.
 
 :: בדיקה שPython מותקן
-python --version >nul 2>&1
+echo [1/5] בודק Python...
+python --version
 if errorlevel 1 (
-    echo שגיאה: Python לא מותקן!
     echo.
-    echo אנא הורד והתקן Python מ:
-    echo https://www.python.org/downloads/
+    echo *** שגיאה: Python לא מותקן ***
     echo.
-    echo חשוב: בזמן ההתקנה סמן את "Add Python to PATH"
+    echo הורד מ: https://www.python.org/downloads/
+    echo חשוב: סמן "Add Python to PATH" בזמן ההתקנה!
     echo.
     pause
     exit /b 1
 )
 
 :: בדיקה שNode.js מותקן
-node --version >nul 2>&1
+echo [2/5] בודק Node.js...
+node --version
 if errorlevel 1 (
-    echo שגיאה: Node.js לא מותקן!
     echo.
-    echo אנא הורד והתקן Node.js מ:
-    echo https://nodejs.org/
+    echo *** שגיאה: Node.js לא מותקן ***
     echo.
-    echo בחר את הגרסה LTS
+    echo הורד מ: https://nodejs.org/ - לחץ על LTS
     echo.
     pause
     exit /b 1
 )
 
-echo מתקין תלויות Backend...
+echo.
+echo [3/5] מתקין תלויות Backend - אנא המתן...
 cd /d "%~dp0backend"
-python -m pip install -r requirements.txt -q
+python -m pip install -r requirements.txt
 if errorlevel 1 (
-    echo שגיאה בהתקנת תלויות Backend
+    echo.
+    echo *** שגיאה בהתקנת Backend ***
     pause
     exit /b 1
 )
 
-echo מפעיל שרת Backend...
-start /b python -m uvicorn main:app --host 127.0.0.1 --port 8000 > "%TEMP%\finance-backend.log" 2>&1
-
-echo מתקין תלויות Frontend...
+echo.
+echo [4/5] מתקין תלויות Frontend - אנא המתן...
 cd /d "%~dp0frontend"
-call npm install --silent
+call npm install
 if errorlevel 1 (
-    echo שגיאה בהתקנת תלויות Frontend
+    echo.
+    echo *** שגיאה בהתקנת Frontend ***
     pause
     exit /b 1
 )
 
-echo מפעיל Frontend...
-start /b npm run dev > "%TEMP%\finance-frontend.log" 2>&1
+echo.
+echo [5/5] מפעיל שרתים...
+cd /d "%~dp0backend"
+start "Backend" python -m uvicorn main:app --host 127.0.0.1 --port 8000
+
+cd /d "%~dp0frontend"
+start "Frontend" npm run dev
 
 echo.
-echo ממתין שהשרתים יעלו...
-timeout /t 5 /nobreak >nul
+echo ממתין 8 שניות שהשרתים יעלו...
+timeout /t 8 /nobreak
 
-echo.
-echo ================================
-echo  האפליקציה מוכנה!
-echo ================================
 echo.
 echo פותח דפדפן...
 start http://localhost:5173
 
 echo.
-echo לעצור את האפליקציה - סגור חלון זה
+echo ================================
+echo  האפליקציה פועלת!
+echo  אם הדפדפן לא נפתח - גש ל:
+echo  http://localhost:5173
+echo ================================
+echo.
+echo אל תסגור חלון זה בזמן השימוש!
+echo לסגירה - לחץ על X כאן
 echo.
 pause
