@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const api = axios.create({ baseURL: "http://localhost:8000" });
+const api = axios.create({ baseURL: "" });
 
 export const getDashboard = () => api.get("/api/dashboard").then(r => r.data);
 export const getTransactions = (params) => api.get("/api/transactions", { params }).then(r => r.data);
