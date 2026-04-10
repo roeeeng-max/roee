@@ -1,29 +1,37 @@
 #!/bin/bash
 set -e
 
-echo "🚀 מתכנן פיננסי - רועי וניקול"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo "מתכנן פיננסי - רועי וניקול"
 echo "================================"
 
-# Backend
-echo "📦 מתקין תלויות Backend..."
-cd "$(dirname "$0")/backend"
-pip install -r requirements.txt -q
+# Backend - virtualenv
+VENV="$SCRIPT_DIR/venv"
+if [ ! -d "$VENV" ]; then
+  echo "יוצר virtualenv..."
+  python3 -m venv "$VENV"
+fi
 
-echo "▶️  מפעיל שרת Backend (port 8000)..."
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
+echo "מתקין תלויות Backend..."
+"$VENV/bin/pip" install -r "$SCRIPT_DIR/backend/requirements.txt" -q
+
+echo "מפעיל שרת Backend (port 8000)..."
+cd "$SCRIPT_DIR/backend"
+"$VENV/bin/uvicorn" main:app --host 0.0.0.0 --port 8000 --reload &
 BACKEND_PID=$!
 
 # Frontend
-echo "📦 מתקין תלויות Frontend..."
-cd "$(dirname "$0")/frontend"
+echo "מתקין תלויות Frontend..."
+cd "$SCRIPT_DIR/frontend"
 npm install --silent
 
-echo "▶️  מפעיל Frontend (port 5173)..."
-npm run dev &
+echo "מפעיל Frontend (port 5173)..."
+npm run dev -- --host 0.0.0.0 &
 FRONTEND_PID=$!
 
 echo ""
-echo "✅ האפליקציה רצה!"
+echo "האפליקציה רצה!"
 echo "   Frontend: http://localhost:5173"
 echo "   Backend API: http://localhost:8000"
 echo "   Docs: http://localhost:8000/docs"
