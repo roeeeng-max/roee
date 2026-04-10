@@ -1,8 +1,13 @@
 import pandas as pd
-import pdfplumber
 import re
 from datetime import datetime
 from pathlib import Path
+
+try:
+    import pdfplumber
+    HAS_PDF = True
+except ImportError:
+    HAS_PDF = False
 
 
 CATEGORY_KEYWORDS = {
@@ -105,7 +110,7 @@ def parse_pdf(filepath: str) -> list[dict]:
     date_pattern = re.compile(r"\d{1,2}[./]\d{1,2}[./]\d{2,4}")
     amount_pattern = re.compile(r"[\d,]+\.\d{2}")
 
-    with pdfplumber.open(filepath) as pdf:
+    with pdfplumber.open(filepath) as pdf:  # type: ignore
         for page in pdf.pages:
             tables = page.extract_tables()
             for table in tables:
@@ -151,5 +156,7 @@ def parse_file(filepath: str) -> list[dict]:
             return rows
         return parse_excel(filepath)
     elif ext == ".pdf":
+        if not HAS_PDF:
+            raise ValueError("ייבוא PDF אינו נתמך. אנא השתמש בקבצי Excel או CSV.")
         return parse_pdf(filepath)
     return []
