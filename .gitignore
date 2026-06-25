@@ -4,5 +4,6 @@ __pycache__/
 node_modules/
 dist/
 venv/
+.env
 # backend/static is committed (built frontend)
 !backend/static/
