@@ -4,11 +4,10 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
 
-# ── Twilio WhatsApp ───────────────────────────────────────────────────────────
-TWILIO_ACCOUNT_SID  = os.getenv("TWILIO_ACCOUNT_SID", "")
-TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN", "")
-TWILIO_FROM         = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
-WHATSAPP_TO         = os.getenv("WHATSAPP_TO", "")        # whatsapp:+972XXXXXXXXX
+# ── CallMeBot WhatsApp (free, no Twilio needed) ───────────────────────────────
+# Setup: send "I allow callmebot to send me messages" to +34 644 47 62 26 on WhatsApp
+CALLMEBOT_PHONE  = os.getenv("CALLMEBOT_PHONE", "")    # e.g. +972501234567
+CALLMEBOT_APIKEY = os.getenv("CALLMEBOT_APIKEY", "")
 
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 DAILY_RUN_TIME   = os.getenv("DAILY_RUN_TIME", "08:00")   # Israel time (UTC+3)
