@@ -4,7 +4,7 @@ Hedge-fund daily monitor.
 Usage:
     python main.py           # Start scheduler (runs every day at DAILY_RUN_TIME)
     python main.py --once    # Run once now and exit (useful for testing / cron)
-    python main.py --dry     # --once but don't send WhatsApp (print only)
+    python main.py --dry     # --once but don't send email (print only)
 """
 
 import logging
@@ -31,7 +31,7 @@ from database import (
 from sec_fetcher import get_recent_filings, get_13f_holdings, get_ma_filings
 from analyzer import analyze_changes
 from formatter import build_messages, no_news_message
-from whatsapp_sender import send_whatsapp
+from email_sender import send_email
 
 logging.basicConfig(
     level=logging.INFO,
@@ -153,11 +153,11 @@ def run_daily_check():
 
     if messages:
         if DRY_RUN:
-            log.info("[DRY RUN] Would send %d WhatsApp message(s):", len(messages))
+            log.info("[DRY RUN] Would send %d email(s):", len(messages))
             for i, m in enumerate(messages, 1):
                 print(f"\n─── Message {i} ───\n{m}")
         else:
-            send_whatsapp(messages)
+            send_email(messages)
     else:
         log.info("Nothing to report today.")
 

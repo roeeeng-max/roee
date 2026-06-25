@@ -4,10 +4,10 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
 
-# ── CallMeBot WhatsApp (free, no Twilio needed) ───────────────────────────────
-# Setup: send "I allow callmebot to send me messages" to +34 644 47 62 26 on WhatsApp
-CALLMEBOT_PHONE  = os.getenv("CALLMEBOT_PHONE", "")    # e.g. +972501234567
-CALLMEBOT_APIKEY = os.getenv("CALLMEBOT_APIKEY", "")
+# ── Email (Gmail) ─────────────────────────────────────────────────────────────
+GMAIL_USER         = os.getenv("GMAIL_USER", "")           # roeeeng@gmail.com
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")   # 16-char App Password
+EMAIL_TO           = os.getenv("EMAIL_TO", "roeeeng@gmail.com")
 
 # ── Scheduler ─────────────────────────────────────────────────────────────────
 DAILY_RUN_TIME   = os.getenv("DAILY_RUN_TIME", "08:00")   # Israel time (UTC+3)
