@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { getDashboard } from "../api";
+import { Link } from "react-router-dom";
+import { getDashboard, getNetWorth } from "../api";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
@@ -11,8 +12,12 @@ const fmt = (n) => `₪${Number(n).toLocaleString("he-IL", { maximumFractionDigi
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [netWorth, setNetWorth] = useState(null);
 
-  useEffect(() => { getDashboard().then(setData); }, []);
+  useEffect(() => {
+    getDashboard().then(setData);
+    getNetWorth().then(setNetWorth).catch(() => {});
+  }, []);
 
   if (!data) return <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>טוען...</div>;
 
@@ -22,6 +27,11 @@ export default function Dashboard() {
 
       {/* KPI cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px,1fr))", gap: 16, marginBottom: 32 }}>
+        {netWorth && (
+          <Link to="/networth" style={{ textDecoration: "none" }}>
+            <KpiCard title="סה״כ הון (בנקים + השקעות)" value={fmt(netWorth.total)} color="#a78bfa" />
+          </Link>
+        )}
         <KpiCard title="סה״כ כל הזמנים" value={fmt(data.total_all_time)} color="#60a5fa" />
         <KpiCard title="החודש הנוכחי" value={fmt(data.total_this_month)} color="#34d399" />
         {data.by_person.map(p => (

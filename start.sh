@@ -18,6 +18,13 @@ echo "📦 מתקין תלויות Frontend..."
 cd "$(dirname "$0")/frontend"
 npm install --silent
 
+# Scraper (חיבור אוטומטי לבנקים) - לא חובה, נכשל בשקט אם Node לא מותקן
+SCRAPER_DIR="$(dirname "$0")/scraper"
+if command -v npm >/dev/null 2>&1 && [ ! -d "$SCRAPER_DIR/node_modules" ]; then
+  echo "📦 מתקין את שירות החיבור האוטומטי לבנקים..."
+  (cd "$SCRAPER_DIR" && npm install --silent) || echo "⚠️  לא הותקן - חיבור אוטומטי לבנקים לא יהיה זמין"
+fi
+
 echo "▶️  מפעיל Frontend (port 5173)..."
 npm run dev &
 FRONTEND_PID=$!

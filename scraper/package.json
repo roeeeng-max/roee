@@ -1,0 +1,10 @@
+{
+  "name": "roee-finance-scraper",
+  "private": true,
+  "version": "1.0.0",
+  "description": "שירות צד קטן שעוטף את israeli-bank-scrapers עבור מתכנן פיננסי - רועי וניקול",
+  "main": "scrape.js",
+  "dependencies": {
+    "israeli-bank-scrapers": "^6.9.0"
+  }
+}

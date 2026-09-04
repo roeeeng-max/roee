@@ -5,6 +5,7 @@
 import subprocess
 import sys
 import os
+import shutil
 import time
 import webbrowser
 
@@ -33,6 +34,22 @@ def main():
         return
 
     print("החבילות הותקנו!")
+    print()
+
+    # התקנת שירות החיבור האוטומטי לבנקים (לא חובה - אם Node.js לא מותקן,
+    # שאר האפליקציה עדיין תעבוד, פשוט בלי חיבור אוטומטי לבנקים)
+    SCRAPER_DIR = os.path.join(HERE, "scraper")
+    node_path = shutil.which("node")
+    npm_path = shutil.which("npm")
+    if node_path and npm_path and not os.path.isdir(os.path.join(SCRAPER_DIR, "node_modules")):
+        print("שלב 1.5: מתקין את שירות החיבור האוטומטי לבנקים (יכול לקחת כמה דקות)...")
+        try:
+            subprocess.run([npm_path, "install"], cwd=SCRAPER_DIR, check=False)
+        except Exception as e:
+            print(f"(לא הצלחתי להתקין - חיבור אוטומטי לבנקים לא יהיה זמין: {e})")
+    elif not node_path:
+        print("שים לב: Node.js לא נמצא - חיבור אוטומטי לבנקים לא יהיה זמין (אפשר להוסיף")
+        print("בתי השקעות/ביטוח ידנית בכל מקרה). פרטים ב-scraper/README.md")
     print()
     print("שלב 2: מפעיל שרת...")
 

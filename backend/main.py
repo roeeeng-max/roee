@@ -9,8 +9,16 @@ from datetime import date, datetime
 from typing import Optional
 
 from database import engine, get_db, Base
-from models import Transaction, Budget, UploadedFile
+from models import (
+    Transaction, Budget, UploadedFile,
+    BankConnection, BalanceSnapshot, NetWorthSnapshot,
+)
 from file_parser import parse_file
+import vault
+import scraper_bridge
+from institutions import SCRAPED_INSTITUTIONS, MANUAL_INSTITUTIONS
+from sync_service import sync_connection, record_networth_snapshot
+from scheduler import start_scheduler
 
 Base.metadata.create_all(bind=engine)
 
@@ -24,6 +32,11 @@ app.add_middleware(
 )
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+
+
+@app.on_event("startup")
+def _on_startup():
+    start_scheduler()
 
 
 # ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -247,6 +260,199 @@ def stats_categories(month: Optional[str] = None, db: Session = Depends(get_db))
         q = q.filter(func.strftime("%Y-%m", Transaction.date) == month)
     q = q.group_by(Transaction.category).order_by(func.sum(Transaction.amount).desc())
     return [{"category": r.category, "total": round(r.total, 2), "count": r.count} for r in q.all()]
+
+
+# ─── כספת (הצפנת פרטי התחברות לבנקים) ─────────────────────────────────────────
+
+@app.get("/api/vault/status")
+def vault_status(db: Session = Depends(get_db)):
+    return {"exists": vault.is_setup(db), "unlocked": vault.is_unlocked()}
+
+
+@app.post("/api/vault/setup")
+def vault_setup(data: dict, db: Session = Depends(get_db)):
+    password = data.get("password", "")
+    if len(password) < 6:
+        raise HTTPException(400, "הסיסמה חייבת להכיל לפחות 6 תווים")
+    try:
+        vault.setup_vault(db, password)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True}
+
+
+@app.post("/api/vault/unlock")
+def vault_unlock(data: dict, db: Session = Depends(get_db)):
+    try:
+        vault.unlock_vault(db, data.get("password", ""))
+    except ValueError as exc:
+        raise HTTPException(401, str(exc))
+    return {"ok": True}
+
+
+@app.post("/api/vault/lock")
+def vault_lock_endpoint():
+    vault.lock_vault()
+    return {"ok": True}
+
+
+# ─── גופים נתמכים ──────────────────────────────────────────────────────────────
+
+@app.get("/api/institutions")
+def list_institutions():
+    return {
+        "scraped": [
+            {"id": k, "name": v["name"], "category": v["category"], "fields": v["fields"], "kind": "scraped"}
+            for k, v in SCRAPED_INSTITUTIONS.items()
+        ],
+        "manual": [
+            {"id": k, "name": v["name"], "category": v["category"], "fields": [], "kind": "manual"}
+            for k, v in MANUAL_INSTITUTIONS.items()
+        ],
+        "node_available": scraper_bridge.is_node_available(),
+        "scraper_ready": scraper_bridge.is_scraper_ready(),
+    }
+
+
+# ─── חיבורים (בנקים / כרטיסי אשראי / בתי השקעות / ביטוח) ──────────────────────
+
+def _serialize_conn(c: BankConnection):
+    return {
+        "id": c.id,
+        "institution_id": c.institution_id,
+        "display_name": c.display_name,
+        "kind": c.kind,
+        "category": c.category,
+        "person": c.person,
+        "last_balance": c.last_balance,
+        "last_synced_at": str(c.last_synced_at) if c.last_synced_at else None,
+        "status": c.status,
+        "last_error": c.last_error,
+    }
+
+
+@app.get("/api/connections")
+def get_connections(db: Session = Depends(get_db)):
+    conns = db.query(BankConnection).order_by(BankConnection.created_at).all()
+    return [_serialize_conn(c) for c in conns]
+
+
+@app.post("/api/connections")
+def add_connection(data: dict, db: Session = Depends(get_db)):
+    institution_id = data.get("institution_id")
+    kind = data.get("kind")
+
+    if kind == "scraped":
+        info = SCRAPED_INSTITUTIONS.get(institution_id)
+        if not info:
+            raise HTTPException(400, "מוסד לא נתמך")
+        if not vault.is_unlocked():
+            raise HTTPException(423, "יש לפתוח את הכספת קודם")
+        creds = data.get("credentials") or {}
+        missing = [f for f in info["fields"] if not creds.get(f)]
+        if missing:
+            raise HTTPException(400, f"חסרים שדות: {', '.join(missing)}")
+        conn = BankConnection(
+            institution_id=institution_id,
+            display_name=data.get("display_name") or info["name"],
+            kind="scraped",
+            category=info["category"],
+            person=data.get("person", "משותף"),
+            encrypted_credentials=vault.encrypt_credentials(creds),
+            status="never",
+        )
+    elif kind == "manual":
+        info = MANUAL_INSTITUTIONS.get(institution_id)
+        if not info:
+            raise HTTPException(400, "מוסד לא נתמך")
+        conn = BankConnection(
+            institution_id=institution_id,
+            display_name=data.get("display_name") or info["name"],
+            kind="manual",
+            category=info["category"],
+            person=data.get("person", "משותף"),
+            last_balance=float(data.get("balance") or 0),
+            status="ok",
+            last_synced_at=datetime.utcnow(),
+        )
+    else:
+        raise HTTPException(400, "kind לא תקין - scraped/manual בלבד")
+
+    db.add(conn)
+    db.commit()
+    db.refresh(conn)
+
+    if conn.kind == "manual":
+        db.add(BalanceSnapshot(connection_id=conn.id, balance=conn.last_balance or 0))
+        db.commit()
+    record_networth_snapshot(db)
+
+    return _serialize_conn(conn)
+
+
+@app.put("/api/connections/{conn_id}/balance")
+def update_manual_balance(conn_id: int, data: dict, db: Session = Depends(get_db)):
+    conn = db.query(BankConnection).filter(BankConnection.id == conn_id).first()
+    if not conn:
+        raise HTTPException(404, "לא נמצא")
+    if conn.kind != "manual":
+        raise HTTPException(400, "עדכון ידני אפשרי רק לחיבורים מסוג ידני")
+    conn.last_balance = float(data["balance"])
+    conn.last_synced_at = datetime.utcnow()
+    conn.status = "ok"
+    db.add(BalanceSnapshot(connection_id=conn.id, balance=conn.last_balance))
+    db.commit()
+    db.refresh(conn)
+    record_networth_snapshot(db)
+    return _serialize_conn(conn)
+
+
+@app.post("/api/connections/{conn_id}/sync")
+def sync_now(conn_id: int, db: Session = Depends(get_db)):
+    conn = db.query(BankConnection).filter(BankConnection.id == conn_id).first()
+    if not conn:
+        raise HTTPException(404, "לא נמצא")
+    if conn.kind != "scraped":
+        raise HTTPException(400, "לחיבור ידני אין סנכרון אוטומטי - עדכנו יתרה ידנית")
+    if not vault.is_unlocked():
+        raise HTTPException(423, "יש לפתוח את הכספת קודם")
+    sync_connection(db, conn)
+    db.refresh(conn)
+    return _serialize_conn(conn)
+
+
+@app.delete("/api/connections/{conn_id}")
+def delete_connection(conn_id: int, db: Session = Depends(get_db)):
+    conn = db.query(BankConnection).filter(BankConnection.id == conn_id).first()
+    if not conn:
+        raise HTTPException(404, "לא נמצא")
+    db.query(BalanceSnapshot).filter(BalanceSnapshot.connection_id == conn_id).delete()
+    db.delete(conn)
+    db.commit()
+    record_networth_snapshot(db)
+    return {"ok": True}
+
+
+# ─── הון כולל ──────────────────────────────────────────────────────────────────
+
+@app.get("/api/networth")
+def get_networth(db: Session = Depends(get_db)):
+    conns = db.query(BankConnection).order_by(BankConnection.created_at).all()
+    total = sum(c.last_balance or 0 for c in conns)
+
+    by_category: dict[str, float] = {}
+    for c in conns:
+        cat = c.category or "other"
+        by_category[cat] = by_category.get(cat, 0) + (c.last_balance or 0)
+
+    history = db.query(NetWorthSnapshot).order_by(NetWorthSnapshot.day).all()
+
+    return {
+        "total": round(total, 2),
+        "by_category": [{"category": k, "total": round(v, 2)} for k, v in by_category.items()],
+        "connections": [_serialize_conn(c) for c in conns],
+        "history": [{"day": h.day, "total": round(h.total, 2)} for h in history],
+    }
 
 
 # ─── Serve Frontend ───────────────────────────────────────────────────────────

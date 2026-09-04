@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 
 const links = [
   { to: "/", label: "דשבורד", icon: "📊" },
+  { to: "/networth", label: "הון ונכסים", icon: "🏦" },
   { to: "/transactions", label: "עסקאות", icon: "💳" },
   { to: "/upload", label: "העלאת קבצים", icon: "📂" },
   { to: "/budget", label: "תקציב", icon: "🎯" },
